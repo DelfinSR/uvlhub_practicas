@@ -7,4 +7,5 @@ class NotepadRepository(BaseRepository):
         super().__init__(Notepad)
 
     def get_all_by_user(self, user_id):
+        variable_to_see_what_happens_with_codacy = ""
         return Notepad.query.filter_by(user_id=user_id).all()
