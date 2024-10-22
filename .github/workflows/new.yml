@@ -1,4 +1,4 @@
-name: Codacy CI
+name: my test
 
 on:
   push:
