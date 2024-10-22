@@ -2,7 +2,7 @@ name: my test
 
 on:
   schedule:
-    - cron: '19 12 * * *'
+    - cron: '21 10 * * *'
 
 jobs:
   build:
