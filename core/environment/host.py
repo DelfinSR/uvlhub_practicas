@@ -26,7 +26,7 @@ def get_host_for_testing(test_type: str) -> str:
         },
         "selenium": {
             "": "http://localhost:5000",
-            "/app/": "http://localhost",
+            "/app/": "http://172.17.0.1",
             "/vagrant/": "http://localhost:5000"
         }
     }

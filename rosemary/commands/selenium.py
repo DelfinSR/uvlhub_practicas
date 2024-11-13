@@ -46,11 +46,42 @@ def selenium(module):
 
     if working_dir == '/app/':
 
+        click.echo("Starting Selenium in Docker environment on port 4444")
+
+        build_command = [
+            "docker", "run", "-d", "-p", "4444:4444", "--name", "selenium_uvlhub_docker", "-v",
+            "/dev/shm:/dev/shm", "selenium/standalone-chrome"]
+
+        click.echo(f"Build command: {' '.join(build_command)}")
+        subprocess.run(build_command, check=True)
+
+        input()
+
+        run_selenium_tests_in_local(module)
+
+        click.echo("Stoping Selenium in Docker")
+
+        stop_command = [
+            "docker", "stop", "selenium_uvlhub_docker"]
+
+        click.echo(f"Stop command: {' '.join(stop_command)}")
+        subprocess.run(stop_command, check=True)
+
+        click.echo("Removing Selenium in Docker")
+
+        remove_command = [
+            "docker", "rm", "selenium_uvlhub_docker"]
+
+        click.echo(f"Remove command: {' '.join(remove_command)}")
+        subprocess.run(remove_command, check=True)
+
+        """     
         click.echo(click.style(
             "Currently it is not possible to run this "
             "command from a Docker environment, do you want to implement it yourself? ^^",
             fg='red'
         ))
+        """
 
     elif working_dir == '':
         run_selenium_tests_in_local(module)

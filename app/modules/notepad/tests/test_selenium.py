@@ -4,11 +4,21 @@ import time
 from core.environment.host import get_host_for_selenium_testing
 from core.selenium.common import initialize_driver, close_driver
 
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+
 
 def test_notepad_index():
 
-    driver = initialize_driver()
+    options = webdriver.ChromeOptions()
+    options.add_argument('--ignore-ssl-errors=yes')
+    options.add_argument('--ignore-certificate-errors')
 
+    # Initialise the browser using WebDriver Manager
+    # service = Service(ChromeDriverManager().install())
+    
+    driver = initialize_driver()
     try:
         host = get_host_for_selenium_testing()
 
@@ -29,6 +39,7 @@ def test_notepad_index():
 
         # Close the browser
         close_driver(driver)
+        print("test passed!")
 
 
 # Call the test function
