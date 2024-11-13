@@ -17,7 +17,8 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           commit-message: "Merge changes from develop to main"
-          branch: main
+          base: main
+          branch: develop
           title: "Daily Merge changes from develop to main"
           body: |
             This PR merges the latest changes from the `develop` branch into the `main` branch.
