@@ -1,8 +1,5 @@
 name: TESTESTTEST
 
-on:
-  schedule:
-    - cron: "*/10 * * * *"
 
 jobs:
   migrate-database:
