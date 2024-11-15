@@ -25,3 +25,8 @@ jobs:
           labels: automated-pr, Clouds & Regions
           branch: develop
           delete-branch: false
+      - name: Check outputs
+        if: ${{ steps.cpr.outputs.pull-request-number }}
+        run: |
+          echo "Pull Request Number - ${{ steps.cpr.outputs.pull-request-number }}"
+          echo "Pull Request URL - ${{ steps.cpr.outputs.pull-request-url }}"
