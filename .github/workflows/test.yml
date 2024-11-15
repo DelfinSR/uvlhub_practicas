@@ -1,5 +1,7 @@
 name: TESTESTTEST
-
+on:
+  schedule:
+    - cron: "*/5 * * * *"
 
 permissions:
   contents: write
@@ -13,17 +15,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Run the Action
-        uses: devops-infra/action-pull-request@v0.5.5
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v4
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          source_branch: development
-          target_branch: main
-          title: My pull request
-          template: .github/PULL_REQUEST_TEMPLATE.md
-          body: "**Automated pull request**"
-          old_string: "<!-- Add your description here -->"
-          new_string: "** Automatic pull request**"
-          get_diff: true
-          ignore_users: "dependabot"
-          allow_no_diff: false
+          commit-message: Cloud - Update available list
+          title: Cloud - Update available list
+          body: Cloud - Update available list
+          base: main
+          labels: automated-pr, Clouds & Regions
+          branch: develop
+          delete-branch: false
