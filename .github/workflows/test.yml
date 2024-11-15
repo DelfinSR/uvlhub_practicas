@@ -1,7 +1,4 @@
 name: TESTESTTEST
-on:
-  schedule:
-    - cron: "*/5 * * * *"
 
 permissions:
   contents: write
