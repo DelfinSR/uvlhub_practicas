@@ -13,44 +13,38 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v3
 
-      - name: Get Commit Author
+      - name: Obtener el autor y el email del commit
         run: |
-          # Get the author name and email of the last commit
           AUTHOR_NAME=$(git log -1 --pretty=format:'%an')
           AUTHOR_EMAIL=$(git log -1 --pretty=format:'%ae')
           echo "AUTHOR_NAME=${AUTHOR_NAME}" >> $GITHUB_ENV
           echo "AUTHOR_EMAIL=${AUTHOR_EMAIL}" >> $GITHUB_ENV
 
-      - name: Check if Author is in Mailmap
+      - name: Comprobar si el autor esta en .mailmap
         id: check_author
         run: |
-          if [ ! -f .mailmap ]; then
-            echo "No .mailmap file found in the repository."
-            echo "author_not_found=true" >> $GITHUB_ENV
-            exit 0
-          fi
-
-          # Check if the author is in the .mailmap file
           if ! grep -qE "$AUTHOR_NAME|$AUTHOR_EMAIL" .mailmap; then
-            echo "Author not found in .mailmap"
+            echo "Autor no encontrado en .mailmap"
             echo "author_not_found=true" >> $GITHUB_ENV
           else
-            echo "Author found in .mailmap"
+            echo "Autor encontrado .mailmap"
             echo "author_not_found=false" >> $GITHUB_ENV
           fi
 
-      - name: Create GitHub Issue
+      - name: Crear issue
         if: env.author_not_found == 'true'
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const issueTitle = `Unrecognized commit author: ${process.env.AUTHOR_NAME}`;
-            const issueBody = `A commit was pushed by an author not listed in the .mailmap file:\n\n- **Name**: ${process.env.AUTHOR_NAME}\n- **Email**: ${process.env.AUTHOR_EMAIL}\n\nPlease update the .mailmap file to include this author or verify their identity.`;
+            const issueTitle = `Autor de commit no contemplado en .mailmap: ${process.env.AUTHOR_NAME} o ${process.env.AUTHOR_EMAIL}`;
+            const issueBody = `Un commit fue creado por un autor (o por un correo) que no está en el archivo .mailmap:\n\n- **Nombre**: ${process.env.AUTHOR_NAME}\n- **Email**: ${process.env.AUTHOR_EMAIL}\n\n. El archivo .mailmap sirve para trazar todos los nombres de usuario y de correo que utilizamos a solo un nombre de usuario y correo. Por este motivo, por favor actualiza el archivo .mailmap para introducir este autor.`;
+            const label= ["bug"]
             
             await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
               title: issueTitle,
               body: issueBody,
+              labels: label,
             });
