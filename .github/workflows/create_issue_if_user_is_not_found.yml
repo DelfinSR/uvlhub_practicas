@@ -1,0 +1,57 @@
+name: Check Commit Author in Mailmap
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  check-author-in-mailmap:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Get Commit Author
+        run: |
+          # Get the author name and email of the last commit
+          AUTHOR_NAME=$(git log -1 --pretty=format:'%an')
+          AUTHOR_EMAIL=$(git log -1 --pretty=format:'%ae')
+          echo "AUTHOR_NAME=${AUTHOR_NAME}" >> $GITHUB_ENV
+          echo "AUTHOR_EMAIL=${AUTHOR_EMAIL}" >> $GITHUB_ENV
+
+      - name: Check if Author is in Mailmap
+        id: check_author
+        run: |
+          if [ ! -f .mailmap ]; then
+            echo "No .mailmap file found in the repository."
+            echo "author_not_found=true" >> $GITHUB_ENV
+            exit 0
+          fi
+
+          # Check if the author is in the .mailmap file
+          if ! grep -qE "$AUTHOR_NAME|$AUTHOR_EMAIL" .mailmap; then
+            echo "Author not found in .mailmap"
+            echo "author_not_found=true" >> $GITHUB_ENV
+          else
+            echo "Author found in .mailmap"
+            echo "author_not_found=false" >> $GITHUB_ENV
+          fi
+
+      - name: Create GitHub Issue
+        if: env.author_not_found == 'true'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const issueTitle = `Unrecognized commit author: ${process.env.AUTHOR_NAME}`;
+            const issueBody = `A commit was pushed by an author not listed in the .mailmap file:\n\n- **Name**: ${process.env.AUTHOR_NAME}\n- **Email**: ${process.env.AUTHOR_EMAIL}\n\nPlease update the .mailmap file to include this author or verify their identity.`;
+            
+            const { data: issue } = await github.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: issueTitle,
+              body: issueBody,
+            });
+
+            console.log(`Issue created: ${issue.html_url}`);
