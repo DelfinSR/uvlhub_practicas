@@ -23,7 +23,7 @@ jobs:
       - name: Comprobar si el autor esta en .mailmap
         id: check_author
         run: |
-          if ! grep -qE "$AUTHOR_NAME|$AUTHOR_EMAIL" .mailmap; then
+          if ! grep -qE "$AUTHOR_NAME" .mailmap || ! grep -qE "$AUTHOR_EMAIL" .mailmap; then
             echo "Autor no encontrado en .mailmap"
             echo "author_not_found=true" >> $GITHUB_ENV
           else
