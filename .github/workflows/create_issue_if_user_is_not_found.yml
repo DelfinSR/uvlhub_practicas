@@ -43,6 +43,7 @@ jobs:
         if: env.author_not_found == 'true'
         uses: actions/github-script@v6
         with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const issueTitle = `Unrecognized commit author: ${process.env.AUTHOR_NAME}`;
             const issueBody = `A commit was pushed by an author not listed in the .mailmap file:\n\n- **Name**: ${process.env.AUTHOR_NAME}\n- **Email**: ${process.env.AUTHOR_EMAIL}\n\nPlease update the .mailmap file to include this author or verify their identity.`;
