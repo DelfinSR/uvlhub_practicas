@@ -49,6 +49,13 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+    
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+    
       - name: Security audit with pip-audit
         run: |
           pip install pip-audit
