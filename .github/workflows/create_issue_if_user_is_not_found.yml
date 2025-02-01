@@ -3,7 +3,7 @@ name: Check Commit Author in Mailmap
 on:
   push:
     branches:
-      - main
+      - develop
 
 jobs:
   check-author-in-mailmap:
