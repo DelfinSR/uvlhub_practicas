@@ -45,6 +45,15 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - name: Run Snyk to check for vulnerabilities
+        uses: snyk/actions/python@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
   coverage:
     needs: build
 
