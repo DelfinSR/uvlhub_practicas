@@ -3,7 +3,7 @@ name: ZAP scan
 on:
   push:
     branches:
-      - main
+      - develop
 jobs:
   zap_scan:
     runs-on: ubuntu-latest
