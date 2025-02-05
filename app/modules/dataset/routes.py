@@ -1,28 +1,25 @@
+from datetime import datetime
 import logging
 import os
 import json
 import shutil
 import tempfile
-import uuid
-from datetime import datetime, timezone
-from zipfile import ZipFile
 
 from flask import (
+    abort,
+    jsonify,
+    make_response,
     redirect,
     render_template,
     request,
-    jsonify,
+    send_file,
     send_from_directory,
-    make_response,
-    abort,
     url_for,
 )
 from flask_login import login_required, current_user
 
+from app.modules.dataset.decorators import is_dataset_owner
 from app.modules.dataset.forms import DataSetForm
-from app.modules.dataset.models import (
-    DSDownloadRecord
-)
 from app.modules.dataset import dataset_bp
 from app.modules.dataset.services import (
     AuthorService,
@@ -30,8 +27,9 @@ from app.modules.dataset.services import (
     DSMetaDataService,
     DSViewRecordService,
     DataSetService,
-    DOIMappingService
+    DOIMappingService,
 )
+from app.modules.hubfile.services import HubfileService
 from app.modules.zenodo.services import ZenodoService
 
 logger = logging.getLogger(__name__)
@@ -43,6 +41,8 @@ dsmetadata_service = DSMetaDataService()
 zenodo_service = ZenodoService()
 doi_mapping_service = DOIMappingService()
 ds_view_record_service = DSViewRecordService()
+ds_download_record_service = DSDownloadRecordService()
+hubfile_service = HubfileService()
 
 
 @dataset_bp.route("/dataset/upload", methods=["GET", "POST"])
@@ -58,12 +58,17 @@ def create_dataset():
 
         try:
             logger.info("Creating dataset...")
-            dataset = dataset_service.create_from_form(form=form, current_user=current_user)
+            dataset = dataset_service.create_from_form(
+                form=form, current_user=current_user
+            )
             logger.info(f"Created dataset: {dataset}")
             dataset_service.move_feature_models(dataset)
         except Exception as exc:
             logger.exception(f"Exception while create dataset data in local {exc}")
-            return jsonify({"Exception while create dataset data in local: ": str(exc)}), 400
+            return (
+                jsonify({"Exception while create dataset data in local: ": str(exc)}),
+                400,
+            )
 
         # send dataset as deposition to Zenodo
         data = {}
@@ -80,7 +85,9 @@ def create_dataset():
             deposition_id = data.get("id")
 
             # update dataset with deposition id in Zenodo
-            dataset_service.update_dsmetadata(dataset.ds_meta_data_id, deposition_id=deposition_id)
+            dataset_service.update_dsmetadata(
+                dataset.ds_meta_data_id, deposition_id=deposition_id
+            )
 
             try:
                 # iterate for each feature model (one feature model = one request to Zenodo)
@@ -92,7 +99,9 @@ def create_dataset():
 
                 # update DOI
                 deposition_doi = zenodo_service.get_doi(deposition_id)
-                dataset_service.update_dsmetadata(dataset.ds_meta_data_id, dataset_doi=deposition_doi)
+                dataset_service.update_dsmetadata(
+                    dataset.ds_meta_data_id, dataset_doi=deposition_doi
+                )
             except Exception as e:
                 msg = f"it has not been possible upload feature models in Zenodo and update the DOI: {e}"
                 return jsonify({"message": msg}), 200
@@ -105,140 +114,132 @@ def create_dataset():
         msg = "Everything works!"
         return jsonify({"message": msg}), 200
 
-    return render_template("dataset/upload_dataset.html", form=form)
+    with_hubfiles = request.args.get("with_hubfiles", "")
+    hubfiles_ids = [int(x) for x in with_hubfiles.split(",") if x]
+    hubfiles = hubfile_service.get_by_ids(hubfiles_ids)
+
+    return render_template(
+        "dataset/create_and_edit_dataset.html",
+        form=form,
+        hubfiles=[hub.to_dict() for hub in hubfiles],
+    )
 
 
-@dataset_bp.route("/dataset/list", methods=["GET", "POST"])
+@dataset_bp.route("/dataset/edit/<int:dataset_id>", methods=["GET"])
+@login_required
+@is_dataset_owner
+def edit_dataset(dataset_id):
+    dataset = dataset_service.get_or_404(dataset_id)
+    form = DataSetForm(obj=dataset)
+    form = dataset_service.populate_form_from_dataset(form=form, dataset=dataset)
+    is_edit = True
+    return render_template(
+        "dataset/create_and_edit_dataset.html",
+        form=form,
+        is_edit=is_edit,
+        dataset=dataset,
+        enumerate=enumerate,
+    )
+
+
+@dataset_bp.route("/dataset/update", methods=["POST"])
+@login_required
+def update_dataset():
+
+    form = DataSetForm()
+    dataset_id = request.form.get("datasetId")
+    dataset = dataset_service.get_by_id(dataset_id)
+
+    if dataset is None:
+        abort(404)
+
+    if dataset.user_id != current_user.id:
+        abort(404)
+
+    logger.info(f"[BACK] Dataset: {dataset.id}")
+
+    if not form.validate_on_submit():
+        logger.info(f"Form errors: {form.errors}")
+        return jsonify({"message": form.errors}), 400
+
+    try:
+        logger.info("Updating dataset...")
+        dataset = dataset_service.update_from_form(
+            form=form, current_user=current_user, dataset=dataset
+        )
+        logger.info(f"Updating deposition with id {dataset.get_zenodo_deposition()}")
+    except Exception as exc:
+        logger.exception(f"Exception while saving dataset data in local {exc}")
+        return (
+            jsonify({"Exception while saving dataset data in local: ": str(exc)}),
+            400,
+        )
+
+    try:
+        zenodo_service.update_deposition(
+            deposition_id=dataset.get_zenodo_deposition(),
+            metadata=dataset.get_zenodo_metadata(),
+        )
+    except Exception as exc:
+        logger.exception(f"Exception while update deposition in Zenodo: {exc}")
+
+    msg = "[Back] Everything works!"
+    return jsonify({"message": msg}), 200
+
+
+@dataset_bp.route("/dataset/list", methods=["GET"])
 @login_required
 def list_dataset():
     return render_template(
         "dataset/list_datasets.html",
-        datasets=dataset_service.get_synchronized(current_user.id),
-        local_datasets=dataset_service.get_unsynchronized(current_user.id),
+        datasets=dataset_service.get_synchronized_datasets_by_user(current_user.id),
+        local_datasets=dataset_service.get_unsynchronized_datasets_by_user(current_user.id),
     )
-
-
-@dataset_bp.route("/dataset/file/upload", methods=["POST"])
-@login_required
-def upload():
-    file = request.files["file"]
-    temp_folder = current_user.temp_folder()
-
-    if not file or not file.filename.endswith(".uvl"):
-        return jsonify({"message": "No valid file"}), 400
-
-    # create temp folder
-    if not os.path.exists(temp_folder):
-        os.makedirs(temp_folder)
-
-    file_path = os.path.join(temp_folder, file.filename)
-
-    if os.path.exists(file_path):
-        # Generate unique filename (by recursion)
-        base_name, extension = os.path.splitext(file.filename)
-        i = 1
-        while os.path.exists(
-            os.path.join(temp_folder, f"{base_name} ({i}){extension}")
-        ):
-            i += 1
-        new_filename = f"{base_name} ({i}){extension}"
-        file_path = os.path.join(temp_folder, new_filename)
-    else:
-        new_filename = file.filename
-
-    try:
-        file.save(file_path)
-    except Exception as e:
-        return jsonify({"message": str(e)}), 500
-
-    return (
-        jsonify(
-            {
-                "message": "UVL uploaded and validated successfully",
-                "filename": new_filename,
-            }
-        ),
-        200,
-    )
-
-
-@dataset_bp.route("/dataset/file/delete", methods=["POST"])
-def delete():
-    data = request.get_json()
-    filename = data.get("file")
-    temp_folder = current_user.temp_folder()
-    filepath = os.path.join(temp_folder, filename)
-
-    if os.path.exists(filepath):
-        os.remove(filepath)
-        return jsonify({"message": "File deleted successfully"})
-
-    return jsonify({"error": "Error: File not found"})
 
 
 @dataset_bp.route("/dataset/download/<int:dataset_id>", methods=["GET"])
 def download_dataset(dataset_id):
+
     dataset = dataset_service.get_or_404(dataset_id)
 
-    file_path = f"uploads/user_{dataset.user_id}/dataset_{dataset.id}/"
+    temp_dir = dataset_service.zip_dataset(dataset)
 
-    temp_dir = tempfile.mkdtemp()
-    zip_path = os.path.join(temp_dir, f"dataset_{dataset_id}.zip")
+    user_cookie = ds_download_record_service.create_cookie(dataset)
 
-    with ZipFile(zip_path, "w") as zipf:
-        for subdir, dirs, files in os.walk(file_path):
-            for file in files:
-                full_path = os.path.join(subdir, file)
-
-                relative_path = os.path.relpath(full_path, file_path)
-
-                zipf.write(
-                    full_path,
-                    arcname=os.path.join(
-                        os.path.basename(zip_path[:-4]), relative_path
-                    ),
-                )
-
-    user_cookie = request.cookies.get("download_cookie")
-    if not user_cookie:
-        user_cookie = str(
-            uuid.uuid4()
-        )  # Generate a new unique identifier if it does not exist
-        # Save the cookie to the user's browser
-        resp = make_response(
-            send_from_directory(
-                temp_dir,
-                f"dataset_{dataset_id}.zip",
-                as_attachment=True,
-                mimetype="application/zip",
-            )
-        )
-        resp.set_cookie("download_cookie", user_cookie)
-    else:
-        resp = send_from_directory(
+    resp = make_response(
+        send_from_directory(
             temp_dir,
-            f"dataset_{dataset_id}.zip",
+            f"dataset_{dataset.id}.zip",
             as_attachment=True,
             mimetype="application/zip",
         )
+    )
 
-    # Check if the download record already exists for this cookie
-    existing_record = DSDownloadRecord.query.filter_by(
-        user_id=current_user.id if current_user.is_authenticated else None,
-        dataset_id=dataset_id,
-        download_cookie=user_cookie
-    ).first()
-
-    if not existing_record:
-        # Record the download in your database
-        DSDownloadRecordService().create(
-            user_id=current_user.id if current_user.is_authenticated else None,
-            dataset_id=dataset_id,
-            download_date=datetime.now(timezone.utc),
-            download_cookie=user_cookie,
-        )
+    resp.set_cookie("download_cookie", user_cookie)
 
     return resp
+
+
+@dataset_bp.route("/dataset/download/all", methods=["GET"])
+def download_all_dataset():
+    # Crear un directorio temporal
+    temp_dir = tempfile.mkdtemp()
+    zip_path = os.path.join(temp_dir, "all_datasets.zip")
+
+    try:
+        # Generar el archivo ZIP
+        dataset_service.zip_all_datasets(zip_path)
+
+        # Crear el nombre del archivo con la fecha
+        current_date = datetime.now().strftime("%Y_%m_%d")
+        zip_filename = f"uvlhub_bulk_{current_date}.zip"
+
+        # Enviar el archivo como respuesta
+        return send_file(zip_path, as_attachment=True, download_name=zip_filename)
+    finally:
+        # Asegurar que la carpeta temporal se elimine después de que Flask sirva el archivo
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
 
 
 @dataset_bp.route("/doi/<path:doi>/", methods=["GET"])
@@ -248,7 +249,7 @@ def subdomain_index(doi):
     new_doi = doi_mapping_service.get_new_doi(doi)
     if new_doi:
         # Redirect to the same path with the new DOI
-        return redirect(url_for('dataset.subdomain_index', doi=new_doi), code=302)
+        return redirect(url_for("dataset.subdomain_index", doi=new_doi), code=302)
 
     # Try to search the dataset by the provided DOI (which should already be the new one)
     ds_meta_data = dsmetadata_service.filter_by_doi(doi)
@@ -272,7 +273,7 @@ def subdomain_index(doi):
 def get_unsynchronized_dataset(dataset_id):
 
     # Get dataset
-    dataset = dataset_service.get_unsynchronized_dataset(current_user.id, dataset_id)
+    dataset = dataset_service.get_unsynchronized_dataset_by_user(current_user.id, dataset_id)
 
     if not dataset:
         abort(404)

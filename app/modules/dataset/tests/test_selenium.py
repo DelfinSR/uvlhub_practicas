@@ -1,4 +1,3 @@
-import os
 import time
 
 from selenium.webdriver.common.by import By
@@ -81,18 +80,13 @@ def test_upload_dataset():
         affiliation_field1 = driver.find_element(By.NAME, "authors-1-affiliation")
         affiliation_field1.send_keys("Club1")
 
-        # Obtén las rutas absolutas de los archivos
-        file1_path = os.path.abspath("app/modules/dataset/uvl_examples/file1.uvl")
-        file2_path = os.path.abspath("app/modules/dataset/uvl_examples/file2.uvl")
-
-        # Subir el primer archivo
+        # Upload two files
         dropzone = driver.find_element(By.CLASS_NAME, "dz-hidden-input")
-        dropzone.send_keys(file1_path)
+        dropzone.send_keys("/tmp/FileSystem.uvl")
         wait_for_page_to_load(driver)
 
-        # Subir el segundo archivo
         dropzone = driver.find_element(By.CLASS_NAME, "dz-hidden-input")
-        dropzone.send_keys(file2_path)
+        dropzone.send_keys("/tmp/FileSystem.uvl")
         wait_for_page_to_load(driver)
 
         # Add authors in UVL models
@@ -104,7 +98,9 @@ def test_upload_dataset():
 
         name_field = driver.find_element(By.NAME, "feature_models-0-authors-2-name")
         name_field.send_keys("Author3")
-        affiliation_field = driver.find_element(By.NAME, "feature_models-0-authors-2-affiliation")
+        affiliation_field = driver.find_element(
+            By.NAME, "feature_models-0-authors-2-affiliation"
+        )
         affiliation_field.send_keys("Club3")
 
         # Check I agree and send form

@@ -170,6 +170,10 @@
     color: white;
     padding: 5px;
     border-radius: 3px;
+    max-width: 100%;
+    display: inline-block;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .badge-danger {
@@ -177,6 +181,10 @@
     color: white;
     padding: 5px;
     border-radius: 3px;
+    max-width: 100%;
+    display: inline-block;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .badge-warning {
@@ -184,4 +192,16 @@
     color: white;
     padding: 5px;
     border-radius: 3px;
+    max-width: 100%;
+    display: inline-block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+a{
+    color: #147ABB;
+}
+
+.bg-primary{
+    background-color: #147ABB !important;
 }

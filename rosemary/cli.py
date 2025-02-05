@@ -1,5 +1,6 @@
 import click
 
+from rosemary.commands.webpack_compile import webpack_compile
 from rosemary.commands.module_list import module_list
 from rosemary.commands.locust import locust, stop
 from rosemary.commands.compose_env import compose_env
@@ -12,7 +13,7 @@ from rosemary.commands.db_reset import db_reset
 from rosemary.commands.clear_log import clear_log
 from rosemary.commands.clear_uploads import clear_uploads
 from rosemary.commands.coverage import coverage
-from rosemary.commands.linter import linter
+from rosemary.commands.linter import linter, linter_fix
 from rosemary.commands.selenium import selenium
 from rosemary.commands.update import update
 from rosemary.commands.info import info, info2
@@ -34,7 +35,6 @@ class RosemaryCLI(click.Group):
 @click.group(cls=RosemaryCLI)
 def cli():
     """A CLI tool to help with project development."""
-    pass
 
 
 cli.add_command(update)
@@ -44,6 +44,7 @@ cli.add_command(make_module)
 cli.add_command(env)
 cli.add_command(test)
 cli.add_command(linter)
+cli.add_command(linter_fix)
 cli.add_command(coverage)
 cli.add_command(clear_uploads)
 cli.add_command(clear_log)
@@ -58,7 +59,7 @@ cli.add_command(locust)
 cli.add_command(stop)
 cli.add_command(selenium)
 cli.add_command(module_list)
+cli.add_command(webpack_compile)
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     cli()
